@@ -18,7 +18,7 @@ class AlexNetEncoder(nn.Module):
         self.linear.bias.data.fill_(0)
 
     def forward(self, x):
-        features = self.resnet(x)
+        features = self.alexnet(x)
         features = Variable(features.data)
         features = features.view(features.size(0), -1)
         features = self.batchnorm(self.linear(features))
