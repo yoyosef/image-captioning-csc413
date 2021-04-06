@@ -59,7 +59,7 @@ class Collate:
 
 
 def initialize_loader(dataset, batch_size=64):
-    pad_idx = dataset.vocab["<PAD>"]
+    pad_idx = dataset.vocab["<pad>"]
     dataloader = DataLoader(
         dataset=dataset,
         batch_size=batch_size,
@@ -69,7 +69,6 @@ def initialize_loader(dataset, batch_size=64):
 
 
 if __name__ == "__main__":
-    # TODO: Split data into train, validation, test before initializing loader
     transform = transforms.Compose(
         [
             transforms.RandomResizedCrop(224),

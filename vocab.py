@@ -14,7 +14,7 @@ def build_vocab(sentences):
     for sentence in sentences:
         sentence = sentence.lower()
         counter.update(en_tokenizer(sentence))
-    return Vocab(counter, specials=['<unk>', '<pad>', '<sos>', '<eos>'], min_freq=2)
+    return Vocab(counter, specials=['<unk>', '<pad>', '<sos>', '<eos>'])
 
 
 if __name__ == "__main__":

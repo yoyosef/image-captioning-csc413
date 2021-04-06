@@ -24,6 +24,10 @@ def train(encoder, decoder, args):
     with open("vocab.pkl", 'rb') as f:
         vocab = pickle.load(f)
 
+    if args.load_model:
+        encoder.load_state_dict(torch.load(args.encoder_path))
+        decoder.load_state_dict(torch.load(args.decoder_path))
+
     train_data = Flickr8k(csv_file="flickr8k/train.csv",
                           root_dir="flickr8k/images", vocab=vocab, transform=transform)
     train_loader = initialize_loader(train_data, batch_size=args.batch_size)
