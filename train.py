@@ -6,27 +6,35 @@ import time
 import numpy as np
 from torch.nn.utils.rnn import pack_padded_sequence
 import os
+import pickle
+
 
 def train(encoder, decoder, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
     transform = transforms.Compose(
-            [
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225]),
-            ])
+        [
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
+        ])
 
-    train_data = Flickr8k(csv_file="flickr8k/train.csv", root_dir="flickr8k/images", transform=transform)
+    with open("vocab.pkl", 'rb') as f:
+        vocab = pickle.load(f)
+
+    train_data = Flickr8k(csv_file="flickr8k/train.csv",
+                          root_dir="flickr8k/images", vocab=vocab, transform=transform)
     train_loader = initialize_loader(train_data, batch_size=args.batch_size)
 
-    val_data = Flickr8k(csv_file="flickr8k/val.csv", root_dir="flickr8k/images", transform=transform)
+    val_data = Flickr8k(csv_file="flickr8k/val.csv",
+                        root_dir="flickr8k/images", vocab=vocab, transform=transform)
     val_loader = initialize_loader(val_data, batch_size=args.batch_size)
 
-    criterion = nn.CrossEntropyLoss(ignore_index=train_data.vocab["<PAD>"])
-    optimizer = torch.optim.Adam(list(encoder.linear.parameters()) + list(decoder.parameters()) + list(encoder.batchnorm.parameters()), lr=args.learn_rate)
+    criterion = nn.CrossEntropyLoss(ignore_index=vocab["<pad>"])
+    optimizer = torch.optim.Adam(list(encoder.linear.parameters(
+    )) + list(decoder.parameters()) + list(encoder.batchnorm.parameters()), lr=args.learn_rate)
 
     encoder.to(device)
     decoder.to(device)
@@ -44,8 +52,9 @@ def train(encoder, decoder, args):
             captions = captions.to(device)
             encoder_output = encoder(imgs)
             outputs = decoder(encoder_output, captions, lengths)
-            targets = pack_padded_sequence(captions, lengths, batch_first=True, enforce_sorted=False)[0] 
-            
+            targets = pack_padded_sequence(
+                captions, lengths, batch_first=True, enforce_sorted=False)[0]
+
             loss = criterion(
                 outputs, targets
             )
@@ -55,7 +64,7 @@ def train(encoder, decoder, args):
 
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
-                      .format(epoch, args.epochs, i, total_step, loss.item())) 
+                      .format(epoch, args.epochs, i, total_step, loss.item()))
 
             if (i+1) % args.save_step == 0:
                 torch.save(decoder.state_dict(), os.path.join(
@@ -70,4 +79,3 @@ def train(encoder, decoder, args):
         #     "Epoch [%d/%d], Loss: %.4f, Time (s): %d"
         #     % (epoch + 1, args.epochs, avg_loss, time_elapsed)
         # )
-   
