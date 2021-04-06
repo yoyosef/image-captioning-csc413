@@ -7,7 +7,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 class ResNetEncoder(nn.Module):
     def __init__(self, embed_size, bn_momentum=0.01):
         super(ResNetEncoder, self).__init__()
-        resnet = models.resnet34(pretrained=True)
+        resnet = models.resnet18(pretrained=True)
         modules = list(resnet.children())[:-1]
         self.resnet = nn.Sequential(*modules)
         self.linear = nn.Linear(resnet.fc.in_features, embed_size)
@@ -42,12 +42,8 @@ class Decoder(nn.Module):
     def forward(self, features, captions, lengths):
         """ This uses teacher forcing """
         embeddings = self.embedding(captions)
-        print(embeddings.shape)
-        embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
-        print(embeddings.shape)
-        # packed = pack_padded_sequence(embeddings, lengths, batch_first=True, enforce_sorted=False) 
-        
-        hiddens, _ = self.lstm(embeddings)
-        
-        outputs = self.linear(hiddens)
+        embeddings = torch.cat((features.unsqueeze(1), embeddings), dim=1)
+        packed = pack_padded_sequence(embeddings, lengths, batch_first=True, enforce_sorted=False) 
+        hiddens, _ = self.lstm(packed)
+        outputs = self.linear(hiddens[0])
         return outputs

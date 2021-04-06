@@ -66,7 +66,6 @@ def initialize_loader(dataset, batch_size=64):
     dataloader = DataLoader(
         dataset=dataset,
         batch_size=batch_size,
-        shuffle=True,
         collate_fn=Collate(pad_idx),
     )
     return dataloader

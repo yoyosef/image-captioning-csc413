@@ -4,10 +4,12 @@ from torch import nn
 from torchvision import transforms
 import time
 import numpy as np
+from torch.nn.utils.rnn import pack_padded_sequence
+import os
 
 def train(encoder, decoder, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    print(device)
     transform = transforms.Compose(
             [
                 transforms.RandomResizedCrop(224),
@@ -24,35 +26,48 @@ def train(encoder, decoder, args):
     val_loader = initialize_loader(val_data, batch_size=args.batch_size)
 
     criterion = nn.CrossEntropyLoss(ignore_index=train_data.vocab["<PAD>"])
-    optimizer = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameters()), lr=args.learn_rate)
+    optimizer = torch.optim.Adam(list(encoder.linear.parameters()) + list(decoder.parameters()) + list(encoder.batchnorm.parameters()), lr=args.learn_rate)
 
     encoder.to(device)
     decoder.to(device)
     start = time.time()
+    for param in encoder.resnet.parameters():
+        param.requires_grad = False
 
+    total_step = len(train_loader)
     train_losses = []
     for epoch in range(args.epochs):
-        encoder.train()
-        decoder.train()
         losses = []
         for i, (imgs, captions, lengths) in enumerate(train_loader):
             optimizer.zero_grad()
-
+            imgs = imgs.to(device)
+            captions = captions.to(device)
             encoder_output = encoder(imgs)
-            print(encoder_output.shape)
             outputs = decoder(encoder_output, captions, lengths)
-            print(outputs.shape)
-            print(captions.shape)
-            loss = criterion(outputs, captions)
+            targets = pack_padded_sequence(captions, lengths, batch_first=True, enforce_sorted=False)[0] 
+            
+            loss = criterion(
+                outputs, targets
+            )
             loss.backward()
             optimizer.step()
             losses.append(loss.data.item())
 
-        avg_loss = np.mean(losses)
-        train_losses.append(avg_loss)
-        time_elapsed = time.time() - start
-        print(
-            "Epoch [%d/%d], Loss: %.4f, Time (s): %d"
-            % (epoch + 1, args.epochs, avg_loss, time_elapsed)
-        )
+            if i % args.log_step == 0:
+                print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
+                      .format(epoch, args.epochs, i, total_step, loss.item())) 
+
+            if (i+1) % args.save_step == 0:
+                torch.save(decoder.state_dict(), os.path.join(
+                    args.model_path, 'decoder-{}-{}.ckpt'.format(epoch+1, i+1)))
+                torch.save(encoder.state_dict(), os.path.join(
+                    args.model_path, 'encoder-{}-{}.ckpt'.format(epoch+1, i+1)))
+
+        # avg_loss = np.mean(losses)
+        # train_losses.append(avg_loss)
+        # time_elapsed = time.time() - start
+        # print(
+        #     "Epoch [%d/%d], Loss: %.4f, Time (s): %d"
+        #     % (epoch + 1, args.epochs, avg_loss, time_elapsed)
+        # )
    
