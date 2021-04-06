@@ -1,4 +1,9 @@
-from data import initialize_loader
+from data import initialize_loader, Flickr8k
+import torch
+from torch import nn
+from torchvision import transforms
+import time
+import numpy as np
 
 def train(encoder, decoder, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -13,12 +18,12 @@ def train(encoder, decoder, args):
             ])
 
     train_data = Flickr8k(csv_file="flickr8k/train.csv", root_dir="flickr8k/images", transform=transform)
-    train_loader = initialize_loader(dataset, batch_size=args.batch_size)
+    train_loader = initialize_loader(train_data, batch_size=args.batch_size)
 
     val_data = Flickr8k(csv_file="flickr8k/val.csv", root_dir="flickr8k/images", transform=transform)
-    val_loader = initialize_loader(dataset, batch_size=args.batch_size)
+    val_loader = initialize_loader(val_data, batch_size=args.batch_size)
 
-    criterion = nn.CrossEntropyLoss(ignore_index=dataset.vocab["<PAD>"])
+    criterion = nn.CrossEntropyLoss(ignore_index=train_data.vocab["<PAD>"])
     optimizer = torch.optim.Adam(list(encoder.parameters()) + list(decoder.parameters()), lr=args.learn_rate)
 
     encoder.to(device)
@@ -34,9 +39,11 @@ def train(encoder, decoder, args):
             optimizer.zero_grad()
 
             encoder_output = encoder(imgs)
+            print(encoder_output.shape)
             outputs = decoder(encoder_output, captions, lengths)
-
-            loss = criterion(outputs, captions, batch_size=args.batch_size)
+            print(outputs.shape)
+            print(captions.shape)
+            loss = criterion(outputs, captions)
             loss.backward()
             optimizer.step()
             losses.append(loss.data.item())
