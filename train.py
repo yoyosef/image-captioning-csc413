@@ -68,13 +68,19 @@ def train(encoder, decoder, args):
 
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
-                      .format(epoch, args.epochs, i, total_step, loss.item()))
+                      .format(epoch+1, args.epochs, i, total_step, loss.item()))
 
-            if (i+1) % args.save_step == 0:
-                torch.save(decoder.state_dict(), os.path.join(
-                    args.model_path, 'decoder-{}-{}.ckpt'.format(epoch+1, i+1)))
-                torch.save(encoder.state_dict(), os.path.join(
-                    args.model_path, 'encoder-{}-{}.ckpt'.format(epoch+1, i+1)))
+            # if (i+1) % args.save_step == 0:
+            #     torch.save(decoder.state_dict(), os.path.join(
+            #         args.model_path, 'decoder-{}-{}.ckpt'.format(epoch+1, i+1)))
+            #     torch.save(encoder.state_dict(), os.path.join(
+            #         args.model_path, 'encoder-{}-{}.ckpt'.format(epoch+1, i+1)))
+
+        if (epoch+1) % args.save_epoch == 0:
+            torch.save(decoder.state_dict(), os.path.join(
+                args.model_path, 'decoder-{}.ckpt'.format(epoch+1)))
+            torch.save(encoder.state_dict(), os.path.join(
+                args.model_path, 'encoder-{}.ckpt'.format(epoch+1)))
 
         # avg_loss = np.mean(losses)
         # train_losses.append(avg_loss)
