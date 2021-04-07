@@ -7,7 +7,7 @@ import numpy as np
 from torch.nn.utils.rnn import pack_padded_sequence
 import os
 import pickle
-
+from validation import evaluate_bleu
 
 def train(encoder, decoder, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -51,6 +51,9 @@ def train(encoder, decoder, args):
     for epoch in range(args.epochs):
         losses = []
         for i, (imgs, captions, lengths) in enumerate(train_loader):
+
+            bleu = evaluate_bleu(encoder, decoder, vocab, val_data)
+            print("Bleu {}".format(bleu))
             optimizer.zero_grad()
             imgs = imgs.to(device)
             captions = captions.to(device)
