@@ -46,16 +46,19 @@ def bulk_caption_image(encoderCNN, decoderRNN, images, vocabulary, max_length=50
     batch_size = 32
     with torch.no_grad():
         x = encoderCNN(images).unsqueeze(1)
+        # x = encoderCNN(images)
+        print(x.shape)
         states = None
 
         for _ in range(max_length):
             
             hiddens, states = decoderRNN.lstm(x, states)
-            output = decoderRNN.linear(hiddens.squeeze(1))
-            predicted = output.argmax(1)
+            output = decoderRNN.linear(hiddens)
+            predicted = output.argmax(2)
             x = decoderRNN.embedding(predicted)
-            x = x.unsqueeze(1)
-
+            print(x.shape)
+            # x = x.unsqueeze(1)
+            # print(x.shape)
             for i in range(batch_size):
                 if vocabulary.itos[predicted[i]] == '<sos>':
                     continue
