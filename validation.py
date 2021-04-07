@@ -39,11 +39,11 @@ def caption_image(encoderCNN, decoderRNN, image, vocabulary, max_length=50):
     return [vocabulary.itos[idx] for idx in result_caption][1:-1]
 
 
-def bulk_caption_image(encoderCNN, decoderRNN, images, vocabulary, max_length=50):
+def bulk_caption_image(encoderCNN, decoderRNN, images, vocabulary, batch_size=32, max_length=50):
     # FROM https://github.com/aladdinpersson/Machine-Learning-Collection/blob/4bd862577ae445852da1c1603ade344d3eb03679/ML/Pytorch/more_advanced/image_captioning/model.py#L49
     # NEED TO CHECK IF IT MAKES SENSE
-    result_caption = [[] for i in range(32)]
-    batch_size = 32
+    num_images = images.shape[0]
+    result_caption = [[] for i in range(num_images)]
     with torch.no_grad():
         x = encoderCNN(images).unsqueeze(1)
         states = None
@@ -56,7 +56,7 @@ def bulk_caption_image(encoderCNN, decoderRNN, images, vocabulary, max_length=50
             x = decoderRNN.embedding(predicted)
             x = x.unsqueeze(1)
 
-            for i in range(batch_size):
+            for i in range(num_images):
                 if vocabulary.itos[predicted[i]] == '<sos>':
                     continue
 
@@ -71,7 +71,7 @@ def bulk_caption_image(encoderCNN, decoderRNN, images, vocabulary, max_length=50
             # if vocabulary.itos[predicted.item()] == "<eos>":
             #     break
 
-    return [[vocabulary.itos[idx] for idx in result_caption[i]][:-1] for i in range(batch_size)]
+    return [[vocabulary.itos[idx] for idx in result_caption[i]][:-1] for i in range(num_images)]
 
 def yield_data(dataset, root_dir):
     transform = transforms.Compose(
@@ -89,6 +89,39 @@ def yield_data(dataset, root_dir):
         image = transform(image).unsqueeze(0)
         refs = [en_tokenizer(ref.lower()) for ref in grouped["caption"][idx]]
         yield image, refs
+
+def yield_batched_data(dataset, batch_size, root_dir):
+    transform = transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                std=[0.229, 0.224, 0.225]),
+        ])
+    grouped = dataset.csv_frame.groupby("image")["caption"].apply(list).reset_index(name="caption")
+    count = 0
+    ref_batch = []
+    imgs = []
+    for idx in range(len(grouped)):
+        count += 1
+
+
+        img_name = os.path.join(root_dir, grouped["image"][idx])
+        image = Image.open(img_name)
+        image = transform(image).unsqueeze(0)
+        
+        refs = [en_tokenizer(ref.lower()) for ref in grouped["caption"][idx]]
+
+        imgs.append(image)
+        ref_batch.append(refs)
+        if count == batch_size:
+            yield imgs, ref_batch
+            count = 0
+            imgs = []
+            ref_batch = []
+
+    if imgs and ref_batch:
+        yield imgs, ref_batch
 
 def evaluate_bleu(encoder, decoder, vocabulary, dataset, root_dir="flickr8k/images"):
     """
@@ -111,6 +144,26 @@ def evaluate_bleu(encoder, decoder, vocabulary, dataset, root_dir="flickr8k/imag
             print("CAND ", " ".join(cap))
             print("REFS ", "\n".join([" ".join(r) for r in refs]))
             print(bleu/count)
+
+    return bleu/count
+
+def evaluate_bleu_batch(encoder, decoder, vocabulary, dataset, batch_size=32, root_dir="flickr8k/images"):
+    """
+    This is faster
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    encoder.eval()
+    decoder.eval()
+    bleu = 0
+    count = 0
+    for imgs, refs_batch  in yield_batched_data(dataset, batch_size, root_dir):
+        imgs = torch.cat(imgs, dim=0)
+        caps = bulk_caption_image(encoder, decoder, imgs, vocabulary, batch_size=batch_size)
+        score = get_bleu_score(caps, refs_batch)
+        
+        bleu += score*len(caps)
+        count += len(caps)
+
 
     return bleu/count
 
