@@ -39,6 +39,38 @@ def caption_image(encoderCNN, decoderRNN, image, vocabulary, max_length=50):
     return [vocabulary.itos[idx] for idx in result_caption][1:-1]
 
 
+def bulk_caption_image(encoderCNN, decoderRNN, images, vocabulary, max_length=50):
+    # FROM https://github.com/aladdinpersson/Machine-Learning-Collection/blob/4bd862577ae445852da1c1603ade344d3eb03679/ML/Pytorch/more_advanced/image_captioning/model.py#L49
+    # NEED TO CHECK IF IT MAKES SENSE
+    result_caption = [[] for i in range(32)]
+    batch_size = 32
+    with torch.no_grad():
+        x = encoderCNN(images).unsqueeze(1)
+        states = None
+
+        for _ in range(max_length):
+            
+            hiddens, states = decoderRNN.lstm(x, states)
+            output = decoderRNN.linear(hiddens.squeeze(1))
+            predicted = output.argmax(1)
+            x = decoderRNN.embedding(predicted)
+            x = x.unsqueeze(1)
+
+            for i in range(batch_size):
+                if vocabulary.itos[predicted[i]] == '<sos>':
+                    continue
+                if len(result_caption[i]) == 0:
+                    result_caption[i].append(predicted[i].item())
+
+                if vocabulary.itos[result_caption[i][-1]] != '<eos>':
+                    
+                    result_caption[i].append(predicted[i].item())
+
+            # if vocabulary.itos[predicted.item()] == "<eos>":
+            #     break
+
+    return [[vocabulary.itos[idx] for idx in result_caption[i]][:-1] for i in range(batch_size)]
+
 def yield_data(dataset, root_dir):
     transform = transforms.Compose(
             [
