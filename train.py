@@ -7,7 +7,7 @@ import numpy as np
 from torch.nn.utils.rnn import pack_padded_sequence
 import os
 import pickle
-from validation import evaluate_bleu
+from validation import evaluate_bleu, evaluate_bleu_batch
 
 def train(encoder, decoder, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -25,8 +25,7 @@ def train(encoder, decoder, args):
         vocab = pickle.load(f)
 
     if args.load_model:
-        encoder.load_state_dict(torch.load(args.encoder_path))
-        decoder.load_state_dict(torch.load(args.decoder_path))
+        
 
     train_data = Flickr8k(csv_file="flickr8k/train.csv",
                           root_dir="flickr8k/images", vocab=vocab, transform=transform)
@@ -48,12 +47,11 @@ def train(encoder, decoder, args):
 
     total_step = len(train_loader)
     train_losses = []
+    bleu_scores = []
     for epoch in range(args.epochs):
         losses = []
         for i, (imgs, captions, lengths) in enumerate(train_loader):
-
-            bleu = evaluate_bleu(encoder, decoder, vocab, val_data)
-            print("Bleu {}".format(bleu))
+            
             optimizer.zero_grad()
             imgs = imgs.to(device)
             captions = captions.to(device)
@@ -73,17 +71,23 @@ def train(encoder, decoder, args):
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                       .format(epoch+1, args.epochs, i, total_step, loss.item()))
 
+
             # if (i+1) % args.save_step == 0:
             #     torch.save(decoder.state_dict(), os.path.join(
             #         args.model_path, 'decoder-{}-{}.ckpt'.format(epoch+1, i+1)))
             #     torch.save(encoder.state_dict(), os.path.join(
             #         args.model_path, 'encoder-{}-{}.ckpt'.format(epoch+1, i+1)))
 
+        bleu = evaluate_bleu_batch(encoder, decoder, vocab, val_data)
+        bleu_scores.append(bleu)
+        print("Epoch [{}/{}], Bleu Score: {}".format(epoch, args.epochs, bleu))
+
         if (epoch+1) % args.save_epoch == 0:
             torch.save(decoder.state_dict(), os.path.join(
                 args.model_path, 'decoder-{}.ckpt'.format(epoch+1)))
             torch.save(encoder.state_dict(), os.path.join(
                 args.model_path, 'encoder-{}.ckpt'.format(epoch+1)))
+            
 
         # avg_loss = np.mean(losses)
         # train_losses.append(avg_loss)
