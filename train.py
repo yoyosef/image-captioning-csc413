@@ -7,7 +7,7 @@ import numpy as np
 from torch.nn.utils.rnn import pack_padded_sequence
 import os
 import pickle
-from validation import evaluate_bleu, evaluate_bleu_batch
+from validation import evaluate_bleu_batch
 
 def train(encoder, decoder, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -25,7 +25,8 @@ def train(encoder, decoder, args):
         vocab = pickle.load(f)
 
     if args.load_model:
-        
+        encoder.load_state_dict(torch.load(args.encoder_path, map_location=torch.device('cpu')))
+        decoder.load_state_dict(torch.load(args.decoder_path, map_location=torch.device('cpu')))
 
     train_data = Flickr8k(csv_file="flickr8k/train.csv",
                           root_dir="flickr8k/images", vocab=vocab, transform=transform)
