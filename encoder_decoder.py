@@ -10,6 +10,8 @@ class ResNetEncoder(nn.Module):
         resnet = models.resnet18(pretrained=True)
         modules = list(resnet.children())[:-1]
         self.resnet = nn.Sequential(*modules)
+        for param in self.resnet.parameters():
+            param.requires_grad = False
         self.linear = nn.Linear(resnet.fc.in_features, embed_size)
         self.batchnorm = nn.BatchNorm1d(embed_size, momentum=bn_momentum)
 
@@ -19,8 +21,7 @@ class ResNetEncoder(nn.Module):
         self.linear.bias.data.fill_(0)
 
     def forward(self, images):
-        with torch.no_grad():
-            features = self.resnet(images)
+        features = self.resnet(images)
         features = features.reshape(features.size(0), -1)
         features = self.batchnorm(self.linear(features))
         return features

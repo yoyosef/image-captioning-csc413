@@ -25,8 +25,8 @@ def train(encoder, decoder, args):
         vocab = pickle.load(f)
 
     if args.load_model:
-        encoder.load_state_dict(torch.load(args.encoder_path, map_location=torch.device('cpu')))
-        decoder.load_state_dict(torch.load(args.decoder_path, map_location=torch.device('cpu')))
+        encoder.load_state_dict(torch.load(args.encoder_path))
+        decoder.load_state_dict(torch.load(args.decoder_path))
 
     train_data = Flickr8k(csv_file="flickr8k/train.csv",
                           root_dir="flickr8k/images", vocab=vocab, transform=transform)
@@ -43,16 +43,18 @@ def train(encoder, decoder, args):
     encoder.to(device)
     decoder.to(device)
     start = time.time()
-    for param in encoder.resnet.parameters():
-        param.requires_grad = False
 
     total_step = len(train_loader)
     train_losses = []
     bleu_scores = []
     for epoch in range(args.epochs):
+        encoder.train()
+        decoder.train()
+        for param in encoder.resnet.parameters():
+            param.requires_grad = False
+
         losses = []
         for i, (imgs, captions, lengths) in enumerate(train_loader):
-            
             optimizer.zero_grad()
             imgs = imgs.to(device)
             captions = captions.to(device)
@@ -81,7 +83,7 @@ def train(encoder, decoder, args):
 
         bleu = evaluate_bleu_batch(encoder, decoder, vocab, val_data)
         bleu_scores.append(bleu)
-        print("Epoch [{}/{}], Bleu Score: {}".format(epoch, args.epochs, bleu))
+        print("Epoch [{}/{}], Bleu Score: {}".format(epoch+1, args.epochs, bleu))
 
         if (epoch+1) % args.save_epoch == 0:
             torch.save(decoder.state_dict(), os.path.join(
