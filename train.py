@@ -9,6 +9,7 @@ import os
 import pickle
 from validation import evaluate_bleu_batch
 
+
 def train(encoder, decoder, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
@@ -37,8 +38,12 @@ def train(encoder, decoder, args):
     val_loader = initialize_loader(val_data, batch_size=args.batch_size)
 
     criterion = nn.CrossEntropyLoss(ignore_index=vocab["<pad>"])
-    optimizer = torch.optim.Adam(list(encoder.linear.parameters(
-    )) + list(decoder.parameters()) + list(encoder.batchnorm.parameters()), lr=args.learn_rate)
+    if args.model_type == "attention":
+        optimizer = torch.optim.Adam(
+            list(decoder.parameters()), lr=args.learn_rate)
+    else:
+        optimizer = torch.optim.Adam(list(encoder.linear.parameters(
+        )) + list(decoder.parameters()) + list(encoder.batchnorm.parameters()), lr=args.learn_rate)
 
     encoder.to(device)
     decoder.to(device)
@@ -59,9 +64,15 @@ def train(encoder, decoder, args):
             imgs = imgs.to(device)
             captions = captions.to(device)
             encoder_output = encoder(imgs)
-            outputs = decoder(encoder_output, captions, lengths)
-            targets = pack_padded_sequence(
-                captions, lengths, batch_first=True, enforce_sorted=False)[0]
+            if args.model_type == "attention":
+                outputs = decoder(encoder_output, captions)[0]
+                outputs = outputs.view(-1, outputs.size(2))
+                targets = captions[:,1:]
+                targets = targets.reshape(-1)
+            else:
+                outputs = decoder(encoder_output, captions, lengths)
+                targets = pack_padded_sequence(
+                    captions, lengths, batch_first=True, enforce_sorted=False)[0]
 
             loss = criterion(
                 outputs, targets
@@ -74,23 +85,21 @@ def train(encoder, decoder, args):
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                       .format(epoch+1, args.epochs, i, total_step, loss.item()))
 
-
             # if (i+1) % args.save_step == 0:
             #     torch.save(decoder.state_dict(), os.path.join(
             #         args.model_path, 'decoder-{}-{}.ckpt'.format(epoch+1, i+1)))
             #     torch.save(encoder.state_dict(), os.path.join(
             #         args.model_path, 'encoder-{}-{}.ckpt'.format(epoch+1, i+1)))
 
-        bleu = evaluate_bleu_batch(encoder, decoder, vocab, val_data)
-        bleu_scores.append(bleu)
-        print("Epoch [{}/{}], Bleu Score: {}".format(epoch+1, args.epochs, bleu))
+        # bleu = evaluate_bleu_batch(encoder, decoder, vocab, val_data)
+        # bleu_scores.append(bleu)
+        # print("Epoch [{}/{}], Bleu Score: {}".format(epoch+1, args.epochs, bleu))
 
         if (epoch+1) % args.save_epoch == 0:
             torch.save(decoder.state_dict(), os.path.join(
-                args.model_path, 'decoder-{}.ckpt'.format(epoch+1)))
+                args.model_path, 'decoder-attention-{}.ckpt'.format(epoch+1)))
             torch.save(encoder.state_dict(), os.path.join(
-                args.model_path, 'encoder-{}.ckpt'.format(epoch+1)))
-            
+                args.model_path, 'encoder-attention-{}.ckpt'.format(epoch+1)))
 
         # avg_loss = np.mean(losses)
         # train_losses.append(avg_loss)

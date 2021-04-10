@@ -64,6 +64,7 @@ def initialize_loader(dataset, batch_size=64):
         dataset=dataset,
         batch_size=batch_size,
         collate_fn=Collate(pad_idx),
+        shuffle=True
     )
     return dataloader
 
