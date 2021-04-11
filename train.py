@@ -8,7 +8,7 @@ from encoder_decoder import ResNetEncoder, Decoder, DecoderWithAttention, ResNet
 from torch.nn.utils.rnn import pack_padded_sequence
 import os
 import pickle
-from validation import evaluate_bleu_batch
+from validation import evaluate_bleu_batch, validation_bleu3
 from pathlib import Path
 
 
@@ -93,16 +93,16 @@ def train(args):
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                       .format(epoch+1, args.epochs, i, total_step, loss.item()))
-
+            
             # if (i+1) % args.save_step == 0:
             #     torch.save(decoder.state_dict(), os.path.join(
             #         args.model_path, 'decoder-{}-{}.ckpt'.format(epoch+1, i+1)))
             #     torch.save(encoder.state_dict(), os.path.join(
             #         args.model_path, 'encoder-{}-{}.ckpt'.format(epoch+1, i+1)))
 
-        # bleu = evaluate_bleu_batch(encoder, decoder, vocab, val_data)
-        # bleu_scores.append(bleu)
-        # print("Epoch [{}/{}], Bleu Score: {}".format(epoch+1, args.epochs, bleu))
+        bleu = validation_bleu3(encoder, decoder, vocab, val_data)
+        bleu_scores.append(bleu)
+        print("Epoch [{}/{}], Bleu Score: {}".format(epoch+1, args.epochs, bleu))
 
         if (epoch+1) % args.save_epoch == 0:
             Path(os.path.join("./", args.model_path)

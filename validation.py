@@ -137,8 +137,12 @@ def get_captions_and_references(encoder, decoder, vocabulary, dataset, batch_siz
         imgs = imgs.to(device)
         references.extend(refs_batch)
         if not attention:
-            caps = bulk_caption_image(encoder, decoder, imgs, vocabulary, batch_size=batch_size)
-            captions.extend(caps)
+            with torch.no_grad():
+                features = encoder(imgs)
+                features = features.unsqueeze(1)
+                
+                caps = decoder.generate_caption_batch(features, vocab=vocabulary)
+                captions.extend(caps)
         else:
             with torch.no_grad():
                 features = encoder(imgs)

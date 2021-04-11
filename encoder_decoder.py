@@ -78,7 +78,7 @@ class Decoder(nn.Module):
             x = features
             states = None
 
-            for _ in range(max_length):
+            for _ in range(max_len):
                 hiddens, states = self.lstm(x, states)
                 output = self.linear(hiddens.squeeze(1))
                 predicted = output.argmax(1)
