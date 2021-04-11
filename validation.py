@@ -13,12 +13,12 @@ from torchvision.transforms import ToTensor
 from data import *
 
 
-def get_bleu_score(candidates, references, maxn_gram=4):
-    score = bleu_score(candidates, references, max_n=maxn_gram)
+def get_bleu_score(candidates, references, maxn_gram=4, weights=[.25]*4):
+    score = bleu_score(candidates, references, max_n=maxn_gram, weights=weights)
     return score
 
 
-def bulk_caption_image(encoderCNN, decoderRNN, images, vocabulary, batch_size=32, max_length=50):
+def bulk_caption_image(encoderCNN, decoderRNN, images, vocabulary, batch_size=32, max_length=50, attention=False):
     # FROM https://github.com/aladdinpersson/Machine-Learning-Collection/blob/4bd862577ae445852da1c1603ade344d3eb03679/ML/Pytorch/more_advanced/image_captioning/model.py#L49
     # NEED TO CHECK IF IT MAKES SENSE
     num_images = images.shape[0]
@@ -86,7 +86,10 @@ def yield_batched_data(dataset, batch_size, root_dir):
         yield imgs, ref_batch
 
 
-def evaluate_bleu_batch(encoder, decoder, vocabulary, dataset, batch_size=32, root_dir="flickr8k/images"):
+def evaluate_bleu_batch(encoder, decoder, vocabulary, dataset, batch_size=32, 
+                attention=False,
+                maxn_gram=2,
+                root_dir="flickr8k/images"):
     """
     This is faster
     """
@@ -99,11 +102,42 @@ def evaluate_bleu_batch(encoder, decoder, vocabulary, dataset, batch_size=32, ro
 
         imgs = torch.cat(imgs, dim=0)
         imgs = imgs.to(device)
-        caps = bulk_caption_image(
-            encoder, decoder, imgs, vocabulary, batch_size=batch_size)
-        score = get_bleu_score(caps, refs_batch)
+        if not attention:
+            caps = bulk_caption_image(encoder, decoder, imgs, vocabulary, batch_size=batch_size)
+        else:
+            with torch.no_grad():
+                features = encoder(imgs)
+                caps = decoder.generate_caption(features, vocab=vocabulary)
+        score = get_bleu_score(caps, refs_batch, maxn_gram=maxn_gram, weights=[1/maxn_gram]*maxn_gram)
 
         bleu += score*len(caps)
         count += len(caps)
 
     return bleu/count
+
+def get_captions_and_references(encoder, decoder, vocabulary, dataset, batch_size=2, 
+                attention=False,
+                root_dir="flickr8k/images"):
+    """
+    This is faster
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    encoder.eval()
+    decoder.eval()
+    bleu = 0
+    count = 0
+    for imgs, refs_batch in yield_batched_data(dataset, batch_size, root_dir):
+        imgs = torch.cat(imgs, dim=0)
+        imgs = imgs.to(device)
+        if not attention:
+            caps = bulk_caption_image(encoder, decoder, imgs, vocabulary, batch_size=batch_size)
+        else:
+            with torch.no_grad():
+                features = encoder(imgs)
+                caps = decoder.generate_caption(features, vocab=vocabulary)
+        print(caps)
+        print(refs_batch)
+        score = get_bleu_score(caps, refs_batch, maxn_gram=2, weights=[.5]*2)
+        print(score)
+        return caps, refs_batch
+        
