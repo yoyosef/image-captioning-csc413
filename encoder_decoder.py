@@ -158,6 +158,9 @@ class DecoderWithAttention(nn.Module):
         batch_size = features.size(0)
         h, c = self.init_hidden_state(features)  # (batch_size, hidden_size)
         num_images = features.shape[0]
+        
+        # alphas
+        alphas = []
 
         # starting input
         word = torch.tensor(vocab.stoi['<sos>']).view(1, -1).to(device)
@@ -171,7 +174,7 @@ class DecoderWithAttention(nn.Module):
                 alpha, context = self.attention(features, h)
 
                 # # store the apla score
-                # alphas.append(alpha.cpu().detach().numpy())
+                alphas.append(alpha.cpu().detach().numpy())
                 embeds_0, context = embeds[:, 0], context
 
                 lstm_input = torch.cat((embeds_0, context), dim=1)
@@ -199,7 +202,7 @@ class DecoderWithAttention(nn.Module):
                 # if vocabulary.itos[predicted.item()] == "<eos>":
                 #     break
 
-        return [[vocab.itos[idx] for idx in result_caption[i]][:-1] for i in range(num_images)]
+        return [[vocab.itos[idx] for idx in result_caption[i]][:-1] for i in range(num_images)], alphas
 
 
     def init_hidden_state(self, encoder_out):

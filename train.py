@@ -111,7 +111,7 @@ def train(args):
                 args.model_path, 'decoder-attention-{}.ckpt'.format(epoch+1)))
             torch.save(encoder.state_dict(), os.path.join(
                 args.model_path, 'encoder-attention-{}.ckpt'.format(epoch+1)))
-
+        
         # avg_loss = np.mean(losses)
         # train_losses.append(avg_loss)
         # time_elapsed = time.time() - start
