@@ -4,6 +4,7 @@ from torch import nn
 from torchvision import transforms
 import time
 import numpy as np
+from encoder_decoder import ResNetEncoder, Decoder, DecoderWithAttention, ResNetAttentionEncoder
 from torch.nn.utils.rnn import pack_padded_sequence
 import os
 import pickle
@@ -11,12 +12,12 @@ from validation import evaluate_bleu_batch
 from pathlib import Path
 
 
-def train(encoder, decoder, args):
+def train(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
     transform = transforms.Compose(
         [
-            transforms.Resize((224,224)),
+            transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225]),
@@ -24,6 +25,14 @@ def train(encoder, decoder, args):
 
     with open("vocab.pkl", 'rb') as f:
         vocab = pickle.load(f)
+
+    if args.model_type == "attention":
+        encoder = ResNetAttentionEncoder(args.embed_size)
+        decoder = DecoderWithAttention(len(
+            vocab), args.embed_size, args.hidden_size, args.encoder_dim, args.attention_dim)
+    else:
+        encoder = ResNetEncoder(args.embed_size)
+        decoder = Decoder(len(vocab), args.embed_size, args.hidden_size)
 
     if args.load_model:
         encoder.load_state_dict(torch.load(args.encoder_path))
@@ -67,7 +76,7 @@ def train(encoder, decoder, args):
             if args.model_type == "attention":
                 outputs = decoder(encoder_output, captions)[0]
                 outputs = outputs.view(-1, outputs.size(2))
-                targets = captions[:,1:]
+                targets = captions[:, 1:]
                 targets = targets.reshape(-1)
             else:
                 outputs = decoder(encoder_output, captions, lengths)
@@ -96,7 +105,8 @@ def train(encoder, decoder, args):
         # print("Epoch [{}/{}], Bleu Score: {}".format(epoch+1, args.epochs, bleu))
 
         if (epoch+1) % args.save_epoch == 0:
-            Path(os.path.join("./", args.model_path)).mkdir(parents=True, exist_ok=True)
+            Path(os.path.join("./", args.model_path)
+                 ).mkdir(parents=True, exist_ok=True)
             torch.save(decoder.state_dict(), os.path.join(
                 args.model_path, 'decoder-attention-{}.ckpt'.format(epoch+1)))
             torch.save(encoder.state_dict(), os.path.join(
