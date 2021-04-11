@@ -124,20 +124,37 @@ def get_captions_and_references(encoder, decoder, vocabulary, dataset, batch_siz
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     encoder.eval()
     decoder.eval()
-    bleu = 0
-    count = 0
+    captions = []
+    references = []
     for imgs, refs_batch in yield_batched_data(dataset, batch_size, root_dir):
         imgs = torch.cat(imgs, dim=0)
         imgs = imgs.to(device)
+        references.extend(refs_batch)
         if not attention:
             caps = bulk_caption_image(encoder, decoder, imgs, vocabulary, batch_size=batch_size)
+            captions.extend(caps)
         else:
             with torch.no_grad():
                 features = encoder(imgs)
                 caps = decoder.generate_caption(features, vocab=vocabulary)
-        print(caps)
-        print(refs_batch)
-        score = get_bleu_score(caps, refs_batch, maxn_gram=2, weights=[.5]*2)
-        print(score)
-        return caps, refs_batch
-        
+                captions.extend(caps)
+    return captions, references
+
+
+def validation(encoders, decoders, vocab, val_data, bleu_max=4, attention=False):
+    
+    bleu = [[] for i in range(bleu_max)]
+    epoch = 0
+    for encoder, decoder in zip(encoders, decoders):
+        c,r = get_captions_and_references(encoder, decoder, 
+                                        vocab, 
+                                        val_data, 
+                                        attention=attention,
+                                        batch_size=128)
+        for i in range(bleu_max):
+            score = get_bleu_score(c, r, maxn_gram=i + 1, weights=[1/(i+1)]*(i+1))
+            bleu[i].append(score)
+
+        epoch += 1
+
+    return bleu
