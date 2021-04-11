@@ -102,6 +102,28 @@ class Decoder(nn.Module):
 
         return [[vocab.itos[idx] for idx in result_caption[i]][:-1] for i in range(num_images)]
 
+    def generate_caption(self, features, max_len=30, vocab=None):
+        result_caption = []
+
+        with torch.no_grad():
+            x = features.unsqueeze(0)
+            states = None
+
+            for _ in range(max_len):
+                hiddens, states = self.lstm(x, states)
+                output = self.linear(hiddens.squeeze(0))
+                predicted = output.argmax(1)
+                x = self.embedding(predicted).unsqueeze(0)
+
+                if vocab.itos[predicted.item()] == "<eos>":
+                    break
+                elif vocab.itos[predicted.item()] == "<sos>":
+                    continue
+
+                result_caption.append(predicted.item())
+
+        return [vocab.itos[idx] for idx in result_caption]
+
 
 class Attention(nn.Module):
     def __init__(self, encoder_dim, hidden_size, attention_dim):
@@ -125,7 +147,8 @@ class Attention(nn.Module):
         attention_scores = attention_scores.squeeze(
             2)  # (batch_size,num_layers)
 
-        alpha = torch.softmax(attention_scores, dim=1)  # (batch_size,num_layers)
+        # (batch_size,num_layers)
+        alpha = torch.softmax(attention_scores, dim=1)
 
         # (batch_size,num_layers,features_dim)
         attention_weights = features * alpha.unsqueeze(2)
@@ -189,7 +212,7 @@ class DecoderWithAttention(nn.Module):
         batch_size = features.size(0)
         h, c = self.init_hidden_state(features)  # (batch_size, hidden_size)
         num_images = features.shape[0]
-        
+
         # alphas
         alphas = []
 
@@ -235,6 +258,40 @@ class DecoderWithAttention(nn.Module):
 
         return [[vocab.itos[idx] for idx in result_caption[i]][:-1] for i in range(num_images)], alphas
 
+    def generate_caption(self, features, max_len=30, vocab=None):
+        batch_size = features.size(0)
+        h, c = self.init_hidden_state(features)  # (batch_size, decoder_dim)
+
+        alphas = []
+
+        # starting input
+        word = torch.tensor(vocab.stoi['<sos>']).view(1, -1).to(device)
+        embeds = self.embedding(word)
+
+        captions = []
+
+        for i in range(max_len):
+            alpha, context = self.attention(features, h)
+
+            # store the apla score
+            alphas.append(alpha.cpu().detach().numpy())
+
+            lstm_input = torch.cat((embeds[:, 0], context), dim=1)
+            h, c = self.lstm_cell(lstm_input, (h, c))
+            output = self.fcn(h)
+            output = output.view(batch_size, -1)
+            predicted_word_idx = output.argmax(dim=1)
+
+            # end if <EOS detected>
+            if vocab.itos[predicted_word_idx.item()] == "<eos>":
+                break
+
+            captions.append(predicted_word_idx.item())
+            # send generated word as the next caption
+            embeds = self.embedding(predicted_word_idx.unsqueeze(0))
+
+        # covert the vocab idx to words and return sentence
+        return [vocab.itos[idx] for idx in captions], alphas
 
     def init_hidden_state(self, encoder_out):
         mean_encoder_out = encoder_out.mean(dim=1)

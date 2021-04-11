@@ -4,7 +4,7 @@ import torch
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def plot_image(img):
+def plot_image(img, title=None):
     inv_normalize = transforms.Normalize(
         mean=[-0.485/0.229, -0.456/0.224, -0.406/0.255],
         std=[1/0.229, 1/0.224, 1/0.255]
@@ -12,18 +12,17 @@ def plot_image(img):
 
     img = inv_normalize(img).permute(1, 2, 0)
     plt.imshow(img)
-
+    if title:
+        plt.title(title)
 
 def get_caption_attention(encoder, decoder, image, vocab):
     encoder.eval()
     decoder.eval()
     with torch.no_grad():
-        features = encoder(image.to(device))
+        features = encoder(image.unsqueeze(0).to(device))
         caps, alphas = decoder.generate_caption(features, vocab=vocab)
-        caps = caps[0]
         caption = ' '.join(caps)
-        print(caption)
-        plot_image(image.squeeze(0))
+        plot_image(image, caption)
 
     return caps, alphas
 
@@ -32,12 +31,10 @@ def get_caption_lstm(encoder, decoder, image, vocab):
     encoder.eval()
     decoder.eval()
     with torch.no_grad():
-        features = encoder(image.to(device))
+        features = encoder(image.unsqueeze(0).to(device))
         caps = decoder.generate_caption(features, vocab=vocab)
-        caps = caps[0]
         caption = ' '.join(caps)
-        print(caption)
-        plot_image(image.squeeze(0))
+        plot_image(image, caption)
 
     return caps
 
