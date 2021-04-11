@@ -8,6 +8,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 import os
 import pickle
 from validation import evaluate_bleu_batch
+from pathlib import Path
 
 
 def train(encoder, decoder, args):
@@ -15,8 +16,7 @@ def train(encoder, decoder, args):
     print(device)
     transform = transforms.Compose(
         [
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
+            transforms.Resize((224,224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225]),
@@ -96,6 +96,7 @@ def train(encoder, decoder, args):
         # print("Epoch [{}/{}], Bleu Score: {}".format(epoch+1, args.epochs, bleu))
 
         if (epoch+1) % args.save_epoch == 0:
+            Path(os.path.join("./", args.model_path)).mkdir(parents=True, exist_ok=True)
             torch.save(decoder.state_dict(), os.path.join(
                 args.model_path, 'decoder-attention-{}.ckpt'.format(epoch+1)))
             torch.save(encoder.state_dict(), os.path.join(
