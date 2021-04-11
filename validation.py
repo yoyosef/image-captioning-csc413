@@ -105,11 +105,15 @@ def evaluate_bleu_batch(encoder, decoder, vocabulary, dataset, batch_size=32,
         imgs = torch.cat(imgs, dim=0)
         imgs = imgs.to(device)
         if not attention:
-            caps = bulk_caption_image(encoder, decoder, imgs, vocabulary, batch_size=batch_size)
+            with torch.no_grad():
+                features = encoder(imgs)
+                features = features.unsqueeze(1)
+                
+                caps = decoder.generate_caption_batch(features, vocab=vocab)
         else:
             with torch.no_grad():
                 features = encoder(imgs)
-                caps = decoder.generate_caption(features, vocab=vocabulary)
+                caps = decoder.generate_caption_batch(features, vocab=vocabulary)
         score = get_bleu_score(caps, refs_batch, maxn_gram=maxn_gram, weights=[1/maxn_gram]*maxn_gram)
 
         bleu += score*len(caps)
@@ -138,7 +142,7 @@ def get_captions_and_references(encoder, decoder, vocabulary, dataset, batch_siz
         else:
             with torch.no_grad():
                 features = encoder(imgs)
-                caps, alphas = decoder.generate_caption(features, vocab=vocabulary)
+                caps, alphas = decoder.generate_caption_batch(features, vocab=vocabulary)
                 captions.extend(caps)
     return captions, references
 

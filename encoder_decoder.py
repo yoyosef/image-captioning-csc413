@@ -71,6 +71,37 @@ class Decoder(nn.Module):
         outputs = self.linear(hiddens[0])
         return outputs
 
+    def generate_caption_batch(self, features, max_len=30, vocab=None):
+        num_images = features.shape[0]
+        result_caption = [[] for i in range(num_images)]
+        with torch.no_grad():
+            x = features
+            states = None
+
+            for _ in range(max_length):
+                hiddens, states = self.lstm(x, states)
+                output = self.linear(hiddens.squeeze(1))
+                predicted = output.argmax(1)
+                x = self.embedding(predicted)
+                x = x.unsqueeze(1)
+
+                for i in range(num_images):
+                    if vocab.itos[predicted[i]] == '<sos>':
+                        continue
+
+                    if len(result_caption[i]) == 0:
+                        result_caption[i].append(predicted[i].item())
+                        continue
+
+                    if vocab.itos[result_caption[i][-1]] != '<eos>':
+
+                        result_caption[i].append(predicted[i].item())
+
+                # if vocabulary.itos[predicted.item()] == "<eos>":
+                #     break
+
+        return [[vocab.itos[idx] for idx in result_caption[i]][:-1] for i in range(num_images)]
+
 
 class Attention(nn.Module):
     def __init__(self, encoder_dim, hidden_size, attention_dim):
@@ -152,7 +183,7 @@ class DecoderWithAttention(nn.Module):
 
         return preds, alphas
 
-    def generate_caption(self, features, max_len=20, vocab=None):
+    def generate_caption_batch(self, features, max_len=30, vocab=None):
         # Inference part
         # Given the image features generate the captions
         batch_size = features.size(0)
