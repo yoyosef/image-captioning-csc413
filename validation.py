@@ -11,7 +11,9 @@ from torchtext.data.metrics import bleu_score
 from PIL import Image
 from torchvision.transforms import ToTensor
 from data import *
-
+from nltk.translate.meteor_score import meteor_score
+import nltk
+nltk.download('wordnet')
 
 def get_bleu_score(candidates, references, maxn_gram=4, weights=[.25]*4):
     score = bleu_score(candidates, references, max_n=maxn_gram, weights=weights)
@@ -168,3 +170,20 @@ def validation_bleu3(encoder, decoder, vocab, val_data, attention=False):
     n_gram = 3
     score = get_bleu_score(c, r, maxn_gram=n_gram, weights=[1/n_gram]*n_gram)
     return score
+
+def validation_meteor(encoder, decoder, vocab, val_data, attention=False):
+    c,r = get_captions_and_references(encoder, decoder, 
+                                    vocab, 
+                                    val_data, 
+                                    attention=attention,
+                                    batch_size=128)
+    return get_meteor_score(candidates, references)
+
+def get_meteor_score(candidates, references):
+    count = 0
+    score_total = 0
+    for c, r in zip(candidates, references):
+        score_total += meteor_score([" ".join(ref) for ref in r], " ".join(c))
+        count += 1
+
+    return score_total/count
