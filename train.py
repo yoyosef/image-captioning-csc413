@@ -100,7 +100,7 @@ def train(args):
             #     torch.save(encoder.state_dict(), os.path.join(
             #         args.model_path, 'encoder-{}-{}.ckpt'.format(epoch+1, i+1)))
 
-        bleu = validation_bleu1(encoder, decoder, vocab, val_data)
+        bleu = validation_bleu1(encoder, decoder, vocab, val_data, attention=args.model_type)
         bleu_scores.append(bleu)
         print("Epoch [{}/{}], Bleu Score: {}".format(epoch+1, args.epochs, bleu))
 
