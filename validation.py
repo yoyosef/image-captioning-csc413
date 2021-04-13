@@ -169,13 +169,13 @@ def validation(encoders, decoders, vocab, val_data, bleu_max=4, attention=False)
 
     return bleu
 
-def validation_bleu3(encoder, decoder, vocab, val_data, attention=False):
+def validation_bleu1(encoder, decoder, vocab, val_data, attention=False):
     c,r = get_captions_and_references(encoder, decoder, 
                                     vocab, 
                                     val_data, 
                                     attention=attention,
                                     batch_size=128)
-    n_gram = 3
+    n_gram = 1
     score = get_bleu_score(c, r, maxn_gram=n_gram, weights=[1/n_gram]*n_gram)
     return score
 
