@@ -93,7 +93,7 @@ def train(args):
             if i % args.log_step == 0:
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                       .format(epoch+1, args.epochs, i, total_step, loss.item()))
-            
+
             # if (i+1) % args.save_step == 0:
             #     torch.save(decoder.state_dict(), os.path.join(
             #         args.model_path, 'decoder-{}-{}.ckpt'.format(epoch+1, i+1)))
@@ -111,11 +111,11 @@ def train(args):
                 args.model_path, 'decoder-attention-{}.ckpt'.format(epoch+1)))
             torch.save(encoder.state_dict(), os.path.join(
                 args.model_path, 'encoder-attention-{}.ckpt'.format(epoch+1)))
-        
-        # avg_loss = np.mean(losses)
-        # train_losses.append(avg_loss)
-        # time_elapsed = time.time() - start
-        # print(
-        #     "Epoch [%d/%d], Loss: %.4f, Time (s): %d"
-        #     % (epoch + 1, args.epochs, avg_loss, time_elapsed)
-        # )
+
+        avg_loss = np.mean(losses)
+        train_losses.append(avg_loss)
+        time_elapsed = time.time() - start
+        print(
+            "Epoch [%d/%d], Loss: %.4f, Time (s): %d"
+            % (epoch + 1, args.epochs, avg_loss, time_elapsed)
+        )
