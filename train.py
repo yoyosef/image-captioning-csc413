@@ -8,7 +8,7 @@ from encoder_decoder import ResNetEncoder, Decoder, DecoderWithAttention, ResNet
 from torch.nn.utils.rnn import pack_padded_sequence
 import os
 import pickle
-from validation import evaluate_bleu_batch, validation_bleu3
+from validation import evaluate_bleu_batch, validation_bleu1
 from pathlib import Path
 
 
@@ -100,7 +100,7 @@ def train(args):
             #     torch.save(encoder.state_dict(), os.path.join(
             #         args.model_path, 'encoder-{}-{}.ckpt'.format(epoch+1, i+1)))
 
-        bleu = validation_bleu3(encoder, decoder, vocab, val_data)
+        bleu = validation_bleu1(encoder, decoder, vocab, val_data)
         bleu_scores.append(bleu)
         print("Epoch [{}/{}], Bleu Score: {}".format(epoch+1, args.epochs, bleu))
 
