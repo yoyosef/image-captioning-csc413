@@ -61,13 +61,15 @@ def train(args):
     total_step = len(train_loader)
     train_losses = []
     bleu_scores = []
+    early_stopping_counter = 0
+    best_val_loss = 1e6
+    best_bleu = -1
+
     for epoch in range(args.epochs):
         encoder.train()
         decoder.train()
-        for param in encoder.resnet.parameters():
-            param.requires_grad = False
-
         losses = []
+
         for i, (imgs, captions, lengths) in enumerate(train_loader):
             optimizer.zero_grad()
             imgs = imgs.to(device)
@@ -100,7 +102,7 @@ def train(args):
             #     torch.save(encoder.state_dict(), os.path.join(
             #         args.model_path, 'encoder-{}-{}.ckpt'.format(epoch+1, i+1)))
 
-        bleu = validation_bleu1(encoder, decoder, vocab, val_data, attention=args.model_type)
+        bleu = validation_bleu1(encoder, decoder, vocab, val_data, attention=(args.model_type == "attention"))
         bleu_scores.append(bleu)
         print("Epoch [{}/{}], Bleu Score: {}".format(epoch+1, args.epochs, bleu))
 
@@ -119,3 +121,50 @@ def train(args):
             "Epoch [%d/%d], Loss: %.4f, Time (s): %d"
             % (epoch + 1, args.epochs, avg_loss, time_elapsed)
         )
+
+        if args.early_stopping_metric == "bleu":
+            if bleu > best_bleu:
+                best_bleu = bleu
+                early_stopping_counter = 0
+            else:
+                early_stopping_counter += 1
+
+            if early_stopping_counter == args.early_stopping_patience:
+                print("Bleu score has not improved in {} epochs, stopping early".format(args.early_stopping_patience))
+                print("Obtained highest bleu score of: {}".format(best_bleu))
+
+        elif args.early_stopping_metric == "loss":
+            val_losses = []
+            for i, (imgs, captions, lengths) in enumerate(val_loader):
+                optimizer.zero_grad()
+                imgs = imgs.to(device)
+                captions = captions.to(device)
+                encoder_output = encoder(imgs)
+                if args.model_type == "attention":
+                    outputs = decoder(encoder_output, captions)[0]
+                    outputs = outputs.view(-1, outputs.size(2))
+                    targets = captions[:, 1:]
+                    targets = targets.reshape(-1)
+                else:
+                    outputs = decoder(encoder_output, captions, lengths)
+                    targets = pack_padded_sequence(
+                        captions, lengths, batch_first=True, enforce_sorted=False)[0]
+
+                val_loss = criterion(
+                    outputs, targets
+                )
+                val_losses.append(val_loss.data.item())
+            avg_val_loss = np.mean(val_losses)    
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                early_stopping_counter = 0
+            else:
+                early_stopping_counter += 1
+            print(
+                "Epoch [%d/%d], Val Loss: %.4f"
+                % (epoch + 1, args.epochs, avg_val_loss)
+            )
+            if early_stopping_counter == args.early_stopping_patience:
+                print("Validation loss has not improved in {} epochs, stopping early".format(args.early_stopping_patience))
+                print("Obtained lowest validation loss of: {}".format(best_val_loss))
+        
