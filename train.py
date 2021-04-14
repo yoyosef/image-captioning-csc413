@@ -132,7 +132,8 @@ def train(args):
             if early_stopping_counter == args.early_stopping_patience:
                 print("Bleu score has not improved in {} epochs, stopping early".format(args.early_stopping_patience))
                 print("Obtained highest bleu score of: {}".format(best_bleu))
-
+                return
+                
         elif args.early_stopping_metric == "loss":
             val_losses = []
             for i, (imgs, captions, lengths) in enumerate(val_loader):
@@ -167,4 +168,4 @@ def train(args):
             if early_stopping_counter == args.early_stopping_patience:
                 print("Validation loss has not improved in {} epochs, stopping early".format(args.early_stopping_patience))
                 print("Obtained lowest validation loss of: {}".format(best_val_loss))
-        
+                return
