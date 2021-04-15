@@ -7,15 +7,20 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class ResNetAttentionEncoder(nn.Module):
-    def __init__(self, embed_size, bn_momentum=0.01):
+    def __init__(self, embed_size, bn_momentum=0.01, finetune=False):
         super(ResNetAttentionEncoder, self).__init__()
         resnet = models.resnet18(pretrained=True)
         modules = list(resnet.children())[:-2]
         self.resnet = nn.Sequential(*modules)
         for param in self.resnet.parameters():
             param.requires_grad = False
+            
+        for c in list(self.resnet.children())[-1]:
+            for p in c.parameters():
+                p.requires_grad = finetune
+        
 
-    def forward(self, images):
+    def forward(self, images, finetune=False):
         features = self.resnet(images)
         features = features.reshape(features.size(0), features.size(1), -1)
         features = features.permute(0, 2, 1)

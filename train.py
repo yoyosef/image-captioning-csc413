@@ -27,7 +27,7 @@ def train(args):
         vocab = pickle.load(f)
 
     if args.model_type == "attention":
-        encoder = ResNetAttentionEncoder(args.embed_size)
+        encoder = ResNetAttentionEncoder(args.embed_size, finetune=args.finetune_attention)
         decoder = DecoderWithAttention(len(
             vocab), args.embed_size, args.hidden_size, args.encoder_dim, args.attention_dim)
     else:
@@ -48,8 +48,9 @@ def train(args):
 
     criterion = nn.CrossEntropyLoss(ignore_index=vocab["<pad>"])
     if args.model_type == "attention":
+        finetune_params = list(list(encoder.resnet.children())[-1].parameters()) if args.finetune_attention else []
         optimizer = torch.optim.Adam(
-            list(decoder.parameters()), lr=args.learn_rate)
+            list(decoder.parameters()) + finetune_params, lr=args.learn_rate)
     else:
         optimizer = torch.optim.Adam(list(encoder.linear.parameters(
         )) + list(decoder.parameters()) + list(encoder.batchnorm.parameters()), lr=args.learn_rate)
